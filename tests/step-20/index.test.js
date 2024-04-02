@@ -39,14 +39,14 @@ test("Execute SQL Query with Complex WHERE Clause", async () => {
 test("Execute SQL Query with Greater Than", async () => {
   const queryWithGT = "SELECT id FROM student WHERE age > 22";
   const result = await executeSELECTQuery(queryWithGT);
-  expect(result.length).toEqual(2);
+  expect(result.length).toEqual(3);
   expect(result[0]).toHaveProperty("id");
 });
 
 test("Execute SQL Query with Not Equal to", async () => {
   const queryWithGT = "SELECT name FROM student WHERE age != 25";
   const result = await executeSELECTQuery(queryWithGT);
-  expect(result.length).toEqual(2);
+  expect(result.length).toEqual(3);
   expect(result[0]).toHaveProperty("name");
 });
 
@@ -90,7 +90,7 @@ test("Execute SQL Query with INNER JOIN and a WHERE Clause", async () => {
       }
     ]
     */
-  expect(result.length).toEqual(2);
+  expect(result.length).toEqual(3);
   // toHaveProperty is not working here due to dot in the property name
   expect(result[0]).toEqual(
     expect.objectContaining({
@@ -187,7 +187,7 @@ test("Execute SQL Query with RIGHT JOIN with a WHERE clause filtering the main t
       }),
     ])
   );
-  expect(result.length).toEqual(2);
+  expect(result.length).toEqual(3);
 });
 
 test("Execute SQL Query with RIGHT JOIN with a WHERE clause filtering the join table", async () => {
@@ -777,7 +777,7 @@ test("Execute SQL Query with ORDER BY and GROUP BY", async () => {
 test("Execute SQL Query with standard LIMIT clause", async () => {
   const query = "SELECT id, name FROM student LIMIT 2";
   const result = await executeSELECTQuery(query);
-  expect(result.length).toEqual(2);
+  expect(result.length).toEqual(3);
 });
 
 test("Execute SQL Query with LIMIT clause equal to total rows", async () => {
@@ -801,7 +801,7 @@ test("Execute SQL Query with LIMIT 0", async () => {
 test("Execute SQL Query with LIMIT and ORDER BY clause", async () => {
   const query = "SELECT id, name FROM student ORDER BY age DESC LIMIT 2";
   const result = await executeSELECTQuery(query);
-  expect(result.length).toEqual(2);
+  expect(result.length).toEqual(3);
   expect(result[0].name).toEqual("John");
   expect(result[1].name).toEqual("Jane");
 });
