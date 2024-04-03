@@ -1,122 +1,211 @@
 const { parseQuery } = require("./queryParser");
 const readCSV = require("./csvReader");
-
-function evaluateCondition(row, clause) {
-  let { field, operator, value } = clause;
-
-  if (row[field] === undefined) {
-    throw new Error(`Invalid field`);
-  }
-  // Parse row value and condition value based on their actual types
-  const rowValue = parsingValue(row[field]);
-  let conditionValue = parsingValue(value);
-  console.log("rowValue", rowValue);
-  console.log("conditionValue", conditionValue);
-  // Compare the field value with the condition value
-  switch (operator) {
-    case "=":
-      return rowValue === conditionValue;
-    case "!=":
-      return rowValue !== conditionValue;
-    case ">":
-      return rowValue > conditionValue;
-    case "<":
-      return rowValue < conditionValue;
-    case ">=":
-      return rowValue >= conditionValue;
-    case "<=":
-      return rowValue <= conditionValue;
-    default:
-      throw new Error(`Unsupported operator: ${operator}`);
-  }
-}
-
-function parsingValue(value) {
-  if (value === null || value === undefined) {
-    return value;
-  }
-  if (
-    typeof value === "string" &&
-    ((value.startsWith("'") && value.endsWith("'")) ||
-      (value.startsWith('"') && value.endsWith('"')))
-  ) {
-    value = value.substring(1, value.length - 1);
-  }
-  if (!isNaN(value) && value.trim() !== "") {
-    return Number(value);
-  }
-  return value;
-}
-
-// Helper functions for different JOIN types
-function performInnerJoin(data, joinData, joinCondition, fields, table) {
-  return data.flatMap((mainRow) => {
-    const matchedJoinRows = joinData.filter((joinRow) => {
-      const mainValue = mainRow[joinCondition.left.split(".")[1]];
-      const joinValue = joinRow[joinCondition.right.split(".")[1]];
-      return mainValue === joinValue;
-    });
-
-    // If there are matching rows, create a row for each match
-    return matchedJoinRows.map((joinRow) => {
-      return fields.reduce((acc, field) => {
-        const [tableName, fieldName] = field.split(".");
-        acc[field] =
-          tableName === table ? mainRow[fieldName] : joinRow[fieldName];
-        return acc;
-      }, {});
-    });
-  });
-}
-
-function performLeftJoin(data, joinData, joinCondition, fields, table) {
-  const leftJoinedData = data.flatMap((mainRow) => {
-    const matchedJoinRows = joinData.filter((joinRow) => {
-      const mainValue = mainRow[joinCondition.left.split(".")[1]];
-      const joinValue = joinRow[joinCondition.right.split(".")[1]];
-      return mainValue === joinValue;
-    });
-
-    if (matchedJoinRows.length === 0) {
-      return [createResultRow(mainRow, null, fields, table, true)];
-    }
-    return matchedJoinRows.map((joinRow) =>
-      createResultRow(mainRow, joinRow, fields, table, true)
-    );
-  });
-  return leftJoinedData;
-}
-
-function createResultRow(
-  mainRow,
-  joinRow,
-  fields,
-  table,
-  includeAllMainFields
+function applyGroupBy(
+  data,
+  groupByFields,
+  aggregateFields,
+  hasAggregateWithoutGroupBy
 ) {
-  const resultRow = {};
-  if (includeAllMainFields) {
-    // Include all fields from the main table
-    Object.keys(mainRow || {}).forEach((key) => {
-      const prefixedKey = `${table}.${key}`;
-      resultRow[prefixedKey] = mainRow ? mainRow[key] : null;
-    });
+  if (!aggregateFields.length) {
+    return data;
   }
-  // Now, add or overwrite with the fields specified in the query
-  fields.forEach((field) => {
-    const [tableName, fieldName] = field.includes(".")
-      ? field.split(".")
-      : [table, field];
-    resultRow[field] =
-      tableName === table && mainRow
-        ? mainRow[fieldName]
-        : joinRow
-        ? joinRow[fieldName]
-        : null;
+  if (!groupByFields && hasAggregateWithoutGroupBy) {
+    const aggregatedValues = {};
+    aggregateFields.forEach((field) => {
+      const { function: aggFunction, on: fieldToAggregate } = field;
+      switch (aggFunction.toUpperCase()) {
+        case "COUNT":
+          aggregatedValues[aggFunction + "(" + fieldToAggregate + ")"] =
+            data.length;
+
+          break;
+        case "SUM":
+          const sumin = data.reduce(
+            (acc, row) => acc + Number(row[fieldToAggregate]),
+            0
+          );
+          aggregatedValues[aggFunction + "(" + fieldToAggregate + ")"] = sumin;
+          break;
+        case "MIN":
+          aggregatedValues[aggFunction + "(" + fieldToAggregate + ")"] =
+            Math.min(...data.map((row) => row[fieldToAggregate]));
+          break;
+        case "MAX":
+          aggregatedValues[aggFunction + "(" + fieldToAggregate + ")"] =
+            Math.max(...data.map((row) => row[fieldToAggregate]));
+          break;
+        case "AVG":
+          const sum = data.reduce(
+            (acc, row) => acc + Number(row[fieldToAggregate]),
+            0
+          );
+          const count = data.length;
+          aggregatedValues[aggFunction + "(" + fieldToAggregate + ")"] =
+            count > 0 ? sum / count : null;
+          break;
+      }
+    });
+    return [aggregatedValues];
+  }
+
+  const groupMap = new Map();
+
+  data.forEach((row) => {
+    const groupKey = groupByFields
+      ? groupByFields.map((field) => row[field]).join("_")
+      : "";
+    const group = groupMap.get(groupKey) || { rows: [], count: 0 };
+    group.rows.push(row);
+    group.count++;
+    groupMap.set(groupKey, group);
   });
-  return resultRow;
+
+  const results = [];
+  for (const [groupKey, group] of groupMap.entries()) {
+    const aggregatedValues = {};
+    aggregateFields.forEach((field) => {
+      const { function: aggFunction, on: fieldToAggregate, as } = field;
+      switch (aggFunction.toUpperCase()) {
+        case "COUNT":
+          if (as) {
+            aggregatedValues[as.trim()] = group.count;
+          } else {
+            aggregatedValues[aggFunction + "(" + fieldToAggregate + ")"] =
+              group.count;
+          }
+          break;
+        case "SUM":
+          const initialValue =
+            group.rows.length > 0 ? Number(group.rows[0][fieldToAggregate]) : 0;
+          aggregatedValues[aggFunction + "(" + fieldToAggregate + ")"] =
+            group.rows.reduce(
+              (acc, row) => acc + Number(row[fieldToAggregate]),
+              initialValue
+            );
+          break;
+        case "MIN":
+          aggregatedValues[aggFunction + "(" + fieldToAggregate + ")"] =
+            Math.min(...group.rows.map((row) => row[fieldToAggregate]));
+          break;
+        case "MAX":
+          aggregatedValues[aggFunction + "(" + fieldToAggregate + ")"] =
+            Math.max(...group.rows.map((row) => row[fieldToAggregate]));
+          break;
+        case "AVG":
+          let sum = 0;
+          let count = 0;
+          for (const row of group.rows) {
+            const value = Number(row[fieldToAggregate]);
+            if (!isNaN(value)) {
+              sum += value;
+              count++;
+            }
+          }
+          aggregatedValues[aggFunction + "(" + fieldToAggregate + ")"] =
+            count > 0 ? sum / count : null;
+          break;
+      }
+    });
+
+    if (groupByFields) {
+      const groupRow = {};
+      groupByFields.forEach(
+        (field) => (groupRow[field] = group.rows[0][field])
+      );
+      results.push({ ...groupRow, ...aggregatedValues });
+    } else {
+      results.push(aggregatedValues);
+    }
+  }
+
+  return results;
 }
 
+function getAggregateFields(field) {
+  const match = field.match(/^(AVG|SUM|COUNT|MIN|MAX)\((.+)\)/i);
+  if (match) {
+    return { function: match[1].trim(), on: match[2].trim(), as: null };
+  }
+}
+async function performLeftJoin(data, joinData, joinCondition, fields, table) {
+  return (data = data.flatMap((mainRow) => {
+    const matchingJoinRows = joinData.filter((joinRow) => {
+      const mainValue = mainRow[joinCondition.left.split(".")[1]];
+      const joinValue = joinRow[joinCondition.right.split(".")[1]];
+      return mainValue === joinValue;
+    });
+
+    if (matchingJoinRows.length === 0) {
+      let output = {};
+      for (const key in mainRow) {
+        output[table + "." + key] = mainRow[key];
+      }
+      const filteredOutput = {};
+      fields.forEach((field) => {
+        const [tableName, fieldName] = field.split(".");
+        filteredOutput[field] = tableName === table ? mainRow[fieldName] : null;
+      });
+      return { ...output, ...filteredOutput };
+    }
+
+    return matchingJoinRows.map((joinRow) => {
+      let output = {};
+      for (const key in mainRow) {
+        output[table + "." + key] = mainRow[key];
+      }
+      for (const key in joinRow) {
+        output[joinCondition.right.split(".")[0] + "." + key] = joinRow[key];
+      }
+      const filteredOutput = {};
+      fields.forEach((field) => {
+        const [tableName, fieldName] = field.split(".");
+        filteredOutput[field] =
+          tableName === table ? mainRow[fieldName] : joinRow[fieldName];
+      });
+      return { ...output, ...filteredOutput };
+    });
+  }));
+}
+
+async function performRightJoin(data, joinData, joinCondition, fields, table) {
+  return (joinData = joinData.flatMap((joinRow) => {
+    const matchingDataRows = data.filter((mainRow) => {
+      const mainValue = mainRow[joinCondition.left.split(".")[1]];
+      const joinValue = joinRow[joinCondition.right.split(".")[1]];
+      return mainValue === joinValue;
+    });
+
+    if (matchingDataRows.length === 0) {
+      let output = {};
+      for (const key in joinRow) {
+        output[joinCondition.right.split(".")[0] + "." + key] = joinRow[key];
+      }
+      const filteredOutput = {};
+      fields.forEach((field) => {
+        const [tableName, fieldName] = field.split(".");
+        filteredOutput[field] = tableName === table ? null : joinRow[fieldName];
+      });
+      return { ...output, ...filteredOutput };
+    }
+
+    return matchingDataRows.map((mainRow) => {
+      let output = {};
+      for (const key in mainRow) {
+        output[table + "." + key] = mainRow[key];
+      }
+      for (const key in joinRow) {
+        output[joinCondition.right.split(".")[0] + "." + key] = joinRow[key];
+      }
+      const filteredOutput = {};
+      fields.forEach((field) => {
+        const [tableName, fieldName] = field.split(".");
+        filteredOutput[field] =
+          tableName === table ? mainRow[fieldName] : joinRow[fieldName];
+      });
+      return { ...output, ...filteredOutput };
+    });
+  }));
+}
 async function executeSELECTQuery(query) {
   try {
     const {
@@ -130,229 +219,173 @@ async function executeSELECTQuery(query) {
       hasAggregateWithoutGroupBy,
       orderByFields,
       limit,
+      isDistinct,
     } = parseQuery(query);
     let data = await readCSV(`${table}.csv`);
-
-    // Perform INNER JOIN if specified
+    if (limit !== null) {
+      data = data.slice(0, limit);
+    }
     if (joinTable && joinCondition) {
       const joinData = await readCSV(`${joinTable}.csv`);
+
       switch (joinType.toUpperCase()) {
         case "INNER":
-          data = performInnerJoin(data, joinData, joinCondition, fields, table);
+          data = await performInnerJoin(
+            data,
+            joinData,
+            joinCondition,
+            fields,
+            table
+          );
           break;
         case "LEFT":
-          data = performLeftJoin(data, joinData, joinCondition, fields, table);
+          data = await performLeftJoin(
+            data,
+            joinData,
+            joinCondition,
+            fields,
+            table
+          );
           break;
         case "RIGHT":
-          data = performRightJoin(data, joinData, joinCondition, fields, table);
+          data = await performRightJoin(
+            data,
+            joinData,
+            joinCondition,
+            fields,
+            table
+          );
           break;
-        default:
-          throw new Error(`Unsupported JOIN type: ${joinType}`);
       }
     }
-    // Apply WHERE clause filtering after JOIN (or on the original data if no join)
-    let filteredData =
-      whereClauses.length > 0
-        ? data.filter((row) =>
-            whereClauses.every((clause) => evaluateCondition(row, clause))
-          )
-        : data;
-    let groupData = filteredData;
-    if (hasAggregateWithoutGroupBy) {
-      // Special handling for queries like 'SELECT COUNT(*) FROM table'
-      const result = {};
 
-      fields.forEach((field) => {
-        const match = /(\w+)\((\*|\w+)\)/.exec(field);
-        if (match) {
-          const [, aggregrateFunc, aggField] = match;
-          switch (aggregrateFunc.toUpperCase()) {
-            case "COUNT":
-              result[field] = filteredData.length;
-              break;
-            case "SUM":
-              result[field] = filteredData.reduce(
-                (acc, row) => acc + parseFloat(row[aggField]),
-                0
-              );
-              break;
-            case "AVG":
-              result[field] =
-                filteredData.reduce(
-                  (acc, row) => acc + parseFloat(row[aggField]),
-                  0
-                ) / filteredData.length;
-              break;
-            case "MIN":
-              result[field] = Math.min(
-                ...filteredData.map((row) => parseFloat(row[aggField]))
-              );
-              break;
-            case "MAX":
-              result[field] = Math.max(
-                ...filteredData.map((row) => parseFloat(row[aggField]))
-              );
-              break;
-            // Additional aggregate functions can be handled here
+    const filterData = () => {
+      if (whereClauses.length > 0) {
+        return data.filter((row) => {
+          return whereClauses.every((clause) => {
+            return evaluateCondition(row, clause);
+          });
+        });
+      } else {
+        return data;
+      }
+    };
+    let filteredData;
+    filteredData = filterData();
+
+    if (groupByFields || hasAggregateWithoutGroupBy) {
+      const aggregateFields = fields
+        .map((field) => {
+          if (field.includes("as")) {
+            const temp = field.split();
+            let aggField = getAggregateFields(temp[0]);
+            aggField["as"] = field;
+            return aggField;
+          } else {
+            return getAggregateFields(field);
           }
+        })
+        .filter((field) => field != undefined);
+      filteredData = applyGroupBy(
+        filteredData,
+        groupByFields,
+        aggregateFields,
+        hasAggregateWithoutGroupBy
+      );
+    }
+    if (orderByFields) {
+      filteredData.sort((a, b) => {
+        for (let { fieldName, order } of orderByFields) {
+          if (a[fieldName] < b[fieldName]) return order === "ASC" ? -1 : 1;
+          if (a[fieldName] > b[fieldName]) return order === "ASC" ? 1 : -1;
         }
-      });
-      return [result];
-      // Add more cases here if needed for other aggregates
-    } else if (groupByFields) {
-      groupData = applyGroupBy(filteredData, groupByFields, fields);
-      // Order them by the specified fields
-      let orderOutput = groupData;
-      if (orderByFields) {
-        orderOutput = groupData.sort((a, b) => {
-          for (let { fieldName, order } of orderByFields) {
-            if (a[fieldName] < b[fieldName]) return order === "ASC" ? -1 : 1;
-            if (a[fieldName] > b[fieldName]) return order === "ASC" ? 1 : -1;
-          }
-          return 0;
-        });
-      }
-      if (limit !== null) {
-        groupData = groupData.slice(0, limit);
-      }
-      return groupData;
-    } else {
-      // Order them by the specified fields
-      let orderOutput = groupData;
-      if (orderByFields) {
-        orderOutput = groupData.sort((a, b) => {
-          for (let { fieldName, order } of orderByFields) {
-            if (a[fieldName] < b[fieldName]) return order === "ASC" ? -1 : 1;
-            if (a[fieldName] > b[fieldName]) return order === "ASC" ? 1 : -1;
-          }
-          return 0;
-        });
-      }
-
-      if (limit !== null) {
-        orderOutput = orderOutput.slice(0, limit);
-      }
-
-      // Select the specified fields
-      return orderOutput.map((row) => {
-        const selectedRow = {};
-        fields.forEach((field) => {
-          // Assuming 'field' is just the column name without table prefix
-          selectedRow[field] = row[field];
-        });
-        return selectedRow;
+        return 0;
       });
     }
+
+    try {
+      if (fields[0] !== "*") {
+        filteredData = filteredData.map((row) => {
+          const selectedRow = {};
+          fields.forEach((field) => {
+            selectedRow[field] = row[field];
+          });
+          return selectedRow;
+        });
+      }
+    } catch (err) {
+      throw new Error(
+        "Fields in query doesn't match the fields in filtered data"
+      );
+    }
+    if (isDistinct) {
+      filteredData = [
+        ...new Map(
+          filteredData.map((item) => [
+            fields.map((field) => item[field]).join("|"),
+            item,
+          ])
+        ).values(),
+      ];
+    }
+    return filteredData;
   } catch (error) {
-    // Log error and provide user-friendly message
     console.error("Error executing query:", error);
     throw new Error(`Error executing query: ${error.message}`);
   }
 }
-function performRightJoin(data, joinData, joinCondition, fields, table) {
-  // Cache the structure of a main table row (keys only)
-  console.log("Inside Right join");
-  console.log("data", data);
-  console.log("Joindata", joinData);
-  console.log("JoinCodnitio", joinCondition);
-  console.log("fields", fields);
-  const RowStructure =
-    data.length > 0
-      ? Object.keys(data[0]).reduce((acc, key) => {
-          acc[key] = null; // Set all values to null initially
-          return acc;
-        }, {})
-      : {};
-  let rightJoinedData = joinData.map((joinRow) => {
-    const mainRowMatch = data.find((mainRow) => {
-      const mainValue = getValueFromGivenRow(mainRow, joinCondition.left);
-      const joinValue = getValueFromGivenRow(joinRow, joinCondition.right);
-      return mainValue === joinValue;
-    });
-    // Use the cached structure if no match is found
-    const mainRowToUse = mainRowMatch || RowStructure;
-    // Include all necessary fields from the 'student' table
-    return createResultRow(mainRowToUse, joinRow, fields, table, true);
-  });
-  console.log("rightJOinedDAta", rightJoinedData);
-  return rightJoinedData;
-}
 
-function getValueFromGivenRow(row, compoundFieldName) {
-  const [tableName, fieldName] = compoundFieldName.split(".");
-  return row[`${tableName}.${fieldName}`] || row[fieldName];
-}
-
-function applyGroupBy(data, groupByFields, aggregateFunctions) {
-  const groupResult = {};
-  data.forEach((row) => {
-    // Generate a key for the group
-    const Key = groupByFields.map((field) => row[field]).join("-");
-    // Initialize group in results if it doesn't exist
-    if (!groupResult[Key]) {
-      groupResult[Key] = { count: 0, sums: {}, mins: {}, maxes: {} };
-      groupByFields.forEach((field) => (groupResult[Key][field] = row[field]));
-    }
-    // Aggregate calculations
-    groupResult[Key].count += 1;
-    aggregateFunctions.forEach((func) => {
-      const match = /(\w+)\((\w+)\)/.exec(func);
-      if (match) {
-        const [, aggregateFunc, aggregateField] = match;
-        const value = parseFloat(row[aggregateField]);
-        switch (aggregateFunc.toUpperCase()) {
-          case "SUM":
-            groupResult[Key].sums[aggregateField] =
-              (groupResult[Key].sums[aggregateField] || 0) + value;
-            break;
-          case "MIN":
-            groupResult[Key].mins[aggregateField] = Math.min(
-              groupResult[Key].mins[aggregateField] || value,
-              value
-            );
-            break;
-          case "MAX":
-            groupResult[Key].maxes[aggregateField] = Math.max(
-              groupResult[Key].maxes[aggregateField] || value,
-              value
-            );
-            break;
-          // Additional aggregate functions can be added here
+async function performInnerJoin(data, joinData, joinCondition, fields, table) {
+  return (data = data.flatMap((mainRow) => {
+    return joinData
+      .filter((joinRow) => {
+        const mainValue = mainRow[joinCondition.left.split(".")[1]];
+        const joinValue = joinRow[joinCondition.right.split(".")[1]];
+        return mainValue === joinValue;
+      })
+      .map((joinRow) => {
+        let output = {};
+        for (const key in mainRow) {
+          output[table + "." + key] = mainRow[key];
         }
-      }
-    });
-  });
-  // Convert grouped results into an array format
-  return Object.values(groupResult).map((group) => {
-    // Construct the final grouped object based on required fields
-    const finalGroup = {};
-    groupByFields.forEach((field) => (finalGroup[field] = group[field]));
-    aggregateFunctions.forEach((func) => {
-      const match = /(\w+)\((\*|\w+)\)/.exec(func);
-      if (match) {
-        const [, aggregateFunc, aggregateField] = match;
-        switch (aggregateFunc.toUpperCase()) {
-          case "SUM":
-            finalGroup[func] = group.sums[aggregateField];
-            break;
-          case "MIN":
-            finalGroup[func] = group.mins[aggregateField];
-            break;
-          case "MAX":
-            finalGroup[func] = group.maxes[aggregateField];
-            break;
-          case "COUNT":
-            finalGroup[func] = group.count;
-            break;
-          // Additional aggregate functions can be handled here
+        for (const key in joinRow) {
+          output[joinCondition.right.split(".")[0] + "." + key] = joinRow[key];
         }
-      }
-    });
-    return finalGroup;
-  });
+        const filteredOutput = {};
+        fields.forEach((field) => {
+          const [tableName, fieldName] = field.split(".");
+          filteredOutput[field] =
+            tableName === table ? mainRow[fieldName] : joinRow[fieldName];
+        });
+        return { ...output, ...filteredOutput };
+      });
+  }));
 }
 
-const query1 = `SELECT name FROM student ORDER BY name ASC`;
-const ret = executeSELECTQuery(query1);
+function evaluateCondition(row, clause) {
+  let { field, operator, value } = clause;
+  value = trimQuotes(value);
+  if (row[field] === undefined) return true;
+  switch (operator) {
+    case "=":
+      return row[field] === value;
+    case "!=":
+      return row[field] !== value;
+    case ">":
+      return row[field] > value;
+    case "<":
+      return row[field] < value;
+    case ">=":
+      return row[field] >= value;
+    case "<=":
+      return row[field] <= value;
+    default:
+      throw new Error(`Unsupported operator: ${operator}`);
+  }
+}
+
+function trimQuotes(inputString) {
+  return inputString.replace(/^['"]|['"]$/g, "");
+}
 
 module.exports = executeSELECTQuery;
