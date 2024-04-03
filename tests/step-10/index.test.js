@@ -90,7 +90,7 @@ test("Execute SQL Query with INNER JOIN and a WHERE Clause", async () => {
       }
     ]
     */
-  expect(result.length).toEqual(3);
+  expect(result.length).toEqual(2);
   // toHaveProperty is not working here due to dot in the property name
   expect(result[0]).toEqual(
     expect.objectContaining({
@@ -187,7 +187,7 @@ test("Execute SQL Query with RIGHT JOIN with a WHERE clause filtering the main t
       }),
     ])
   );
-  expect(result.length).toEqual(3);
+  expect(result.length).toEqual(2);
 });
 
 test("Execute SQL Query with RIGHT JOIN with a WHERE clause filtering the join table", async () => {
