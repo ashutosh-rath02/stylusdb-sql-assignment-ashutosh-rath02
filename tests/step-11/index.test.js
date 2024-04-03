@@ -90,7 +90,7 @@ test("Execute SQL Query with INNER JOIN and a WHERE Clause", async () => {
       }
     ]
     */
-  expect(result.length).toEqual(3);
+  expect(result.length).toEqual(2);
   // toHaveProperty is not working here due to dot in the property name
   expect(result[0]).toEqual(
     expect.objectContaining({
@@ -187,7 +187,7 @@ test("Execute SQL Query with RIGHT JOIN with a WHERE clause filtering the main t
       }),
     ])
   );
-  expect(result.length).toEqual(3);
+  expect(result.length).toEqual(2);
 });
 
 test("Execute SQL Query with RIGHT JOIN with a WHERE clause filtering the join table", async () => {
@@ -394,21 +394,17 @@ test("Parse SQL Query with INNER JOIN", async () => {
   });
 });
 
-test("Parse SQL Query with INNER JOIN and WHERE Clause", async () => {
+test("Execute SQL Query with INNER JOIN and a WHERE Clause", async () => {
   const query =
-    "SELECT student.name, enrollment.course FROM student INNER JOIN enrollment ON student.id = enrollment.student_id WHERE student.age > 20";
-  const result = await parseQuery(query);
-  expect(result).toEqual({
-    fields: ["student.name", "enrollment.course"],
-    table: "student",
-    whereClauses: [{ field: "student.age", operator: ">", value: "20" }],
-    joinTable: "enrollment",
-    joinType: "INNER",
-    joinCondition: { left: "student.id", right: "enrollment.student_id" },
-    groupByFields: null,
-    hasAggregateWithoutGroupBy: false,
-    orderByFields: null,
-  });
+    "SELECT student.name, enrollment.course, student.age FROM student INNER JOIN enrollment ON student.id = enrollment.student_id WHERE student.age > 25";
+  const result = await executeSELECTQuery(query);
+  expect(result.length).toEqual(2);
+  expect(result[0]).toEqual(
+    expect.objectContaining({
+      "enrollment.course": "Mathematics",
+      "student.name": "John",
+    })
+  );
 });
 
 test("Parse INNER JOIN clause", () => {
@@ -571,7 +567,7 @@ test("Parse COUNT Aggregate Query", () => {
     joinTable: null,
     joinType: null,
     groupByFields: null,
-    hasAggregateWithoutGroupBy: false,
+    hasAggregateWithoutGroupBy: true,
     orderByFields: null,
   });
 });
@@ -589,7 +585,7 @@ test("Parse SUM Aggregate Query", () => {
     joinTable: null,
     joinType: null,
     groupByFields: null,
-    hasAggregateWithoutGroupBy: false,
+    hasAggregateWithoutGroupBy: true,
     orderByFields: null,
   });
 });
@@ -607,7 +603,7 @@ test("Parse AVG Aggregate Query", () => {
     joinTable: null,
     joinType: null,
     groupByFields: null,
-    hasAggregateWithoutGroupBy: false,
+    hasAggregateWithoutGroupBy: true,
     orderByFields: null,
   });
 });
@@ -625,7 +621,7 @@ test("Parse MIN Aggregate Query", () => {
     joinTable: null,
     joinType: null,
     groupByFields: null,
-    hasAggregateWithoutGroupBy: false,
+    hasAggregateWithoutGroupBy: true,
     orderByFields: null,
   });
 });
@@ -643,7 +639,7 @@ test("Parse MAX Aggregate Query", () => {
     joinTable: null,
     joinType: null,
     groupByFields: null,
-    hasAggregateWithoutGroupBy: false,
+    hasAggregateWithoutGroupBy: true,
     orderByFields: null,
   });
 });

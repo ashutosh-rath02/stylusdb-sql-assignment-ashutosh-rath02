@@ -22,6 +22,7 @@ test("Parse SQL Query", () => {
     joinTable: null,
     groupByFields: null,
     hasAggregateWithoutGroupBy: false,
+    orderByFields: null,
   });
 });
 
@@ -53,6 +54,7 @@ test("Parse SQL Query with WHERE Clause", () => {
     joinTable: null,
     groupByFields: null,
     hasAggregateWithoutGroupBy: false,
+    orderByFields: null,
   });
 });
 
@@ -88,6 +90,7 @@ test("Parse SQL Query with Multiple WHERE Clauses", () => {
     joinTable: null,
     groupByFields: null,
     hasAggregateWithoutGroupBy: false,
+    orderByFields: null,
   });
 });
 
@@ -125,6 +128,7 @@ test("Parse SQL Query with INNER JOIN", async () => {
     joinType: "INNER",
     groupByFields: null,
     hasAggregateWithoutGroupBy: false,
+    orderByFields: null,
   });
 });
 
@@ -141,6 +145,7 @@ test("Parse SQL Query with INNER JOIN and WHERE Clause", async () => {
     joinType: "INNER",
     groupByFields: null,
     hasAggregateWithoutGroupBy: false,
+    orderByFields: null,
   });
 });
 
