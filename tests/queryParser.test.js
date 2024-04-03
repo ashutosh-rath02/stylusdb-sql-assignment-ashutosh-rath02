@@ -12,6 +12,8 @@ test("Parse SQL Query", () => {
     joinType: null,
     groupByFields: null,
     hasAggregateWithoutGroupBy: false,
+    groupByFields: null,
+    hasAggregateWithoutGroupBy: false,
   });
 });
 
@@ -31,6 +33,8 @@ test("Parse SQL Query with WHERE Clause", () => {
     joinCondition: null,
     joinTable: null,
     joinType: null,
+    groupByFields: null,
+    hasAggregateWithoutGroupBy: false,
     groupByFields: null,
     hasAggregateWithoutGroupBy: false,
   });
@@ -57,6 +61,8 @@ test("Parse SQL Query with Multiple WHERE Clauses", () => {
     joinCondition: null,
     joinTable: null,
     joinType: null,
+    groupByFields: null,
+    hasAggregateWithoutGroupBy: false,
     groupByFields: null,
     hasAggregateWithoutGroupBy: false,
   });
@@ -247,6 +253,8 @@ test("Parse COUNT Aggregate Query", () => {
     joinCondition: null,
     joinTable: null,
     joinType: null,
+    groupByFields: null,
+    hasAggregateWithoutGroupBy: false,
   });
 });
 
@@ -262,6 +270,8 @@ test("Parse SUM Aggregate Query", () => {
     joinCondition: null,
     joinTable: null,
     joinType: null,
+    groupByFields: null,
+    hasAggregateWithoutGroupBy: false,
   });
 });
 
@@ -277,6 +287,8 @@ test("Parse AVG Aggregate Query", () => {
     joinCondition: null,
     joinTable: null,
     joinType: null,
+    groupByFields: null,
+    hasAggregateWithoutGroupBy: false,
   });
 });
 
@@ -292,6 +304,8 @@ test("Parse MIN Aggregate Query", () => {
     joinCondition: null,
     joinTable: null,
     joinType: null,
+    groupByFields: null,
+    hasAggregateWithoutGroupBy: false,
   });
 });
 
@@ -307,6 +321,8 @@ test("Parse MAX Aggregate Query", () => {
     joinCondition: null,
     joinTable: null,
     joinType: null,
+    groupByFields: null,
+    hasAggregateWithoutGroupBy: false,
   });
 });
 

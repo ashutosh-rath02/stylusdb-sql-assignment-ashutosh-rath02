@@ -20,6 +20,10 @@ test("Parse SQL Query", () => {
     joinCondition: null,
     joinTable: null,
     joinType: null,
+    groupByFields: null,
+    hasAggregateWithoutGroupBy: false,
+    groupByFields: null,
+    hasAggregateWithoutGroupBy: false,
   });
 });
 

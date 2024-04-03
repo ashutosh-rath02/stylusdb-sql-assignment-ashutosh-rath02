@@ -318,6 +318,8 @@ test("Parse SQL Query", () => {
     joinType: null,
     groupByFields: null,
     hasAggregateWithoutGroupBy: false,
+    groupByFields: null,
+    hasAggregateWithoutGroupBy: false,
     orderByFields: null,
     limit: null,
   });
@@ -339,6 +341,8 @@ test("Parse SQL Query with WHERE Clause", () => {
     joinCondition: null,
     joinTable: null,
     joinType: null,
+    groupByFields: null,
+    hasAggregateWithoutGroupBy: false,
     groupByFields: null,
     hasAggregateWithoutGroupBy: false,
     orderByFields: null,
@@ -367,6 +371,8 @@ test("Parse SQL Query with Multiple WHERE Clauses", () => {
     joinCondition: null,
     joinTable: null,
     joinType: null,
+    groupByFields: null,
+    hasAggregateWithoutGroupBy: false,
     groupByFields: null,
     hasAggregateWithoutGroupBy: false,
     orderByFields: null,
@@ -575,6 +581,8 @@ test("Parse COUNT Aggregate Query", () => {
     joinCondition: null,
     joinTable: null,
     joinType: null,
+    groupByFields: null,
+    hasAggregateWithoutGroupBy: false,
     orderByFields: null,
     limit: null,
   });
@@ -592,6 +600,8 @@ test("Parse SUM Aggregate Query", () => {
     joinCondition: null,
     joinTable: null,
     joinType: null,
+    groupByFields: null,
+    hasAggregateWithoutGroupBy: false,
     orderByFields: null,
     limit: null,
   });
@@ -609,6 +619,8 @@ test("Parse AVG Aggregate Query", () => {
     joinCondition: null,
     joinTable: null,
     joinType: null,
+    groupByFields: null,
+    hasAggregateWithoutGroupBy: false,
     orderByFields: null,
     limit: null,
   });
@@ -626,6 +638,8 @@ test("Parse MIN Aggregate Query", () => {
     joinCondition: null,
     joinTable: null,
     joinType: null,
+    groupByFields: null,
+    hasAggregateWithoutGroupBy: false,
     orderByFields: null,
     limit: null,
   });
@@ -643,6 +657,8 @@ test("Parse MAX Aggregate Query", () => {
     joinCondition: null,
     joinTable: null,
     joinType: null,
+    groupByFields: null,
+    hasAggregateWithoutGroupBy: false,
     orderByFields: null,
     limit: null,
   });
