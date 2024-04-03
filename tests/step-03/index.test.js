@@ -15,5 +15,6 @@ test("Parse SQL Query", () => {
     groupByFields: null,
     hasAggregateWithoutGroupBy: false,
     orderByFields: null,
+    limit: null,
   });
 });

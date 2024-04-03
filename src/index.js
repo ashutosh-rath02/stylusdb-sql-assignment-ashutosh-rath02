@@ -128,12 +128,11 @@ async function executeSELECTQuery(query) {
     groupByFields,
     hasAggregateWithoutGroupBy,
     orderByFields,
+    limit,
   } = parseQuery(query);
-
   let data = await readCSV(`${table}.csv`);
-  console.log("data before join condition", data);
-  // LOGIC for applying the joins
-  console.log("groupByfieds", groupByFields);
+
+  // Perform INNER JOIN if specified
   if (joinTable && joinCondition) {
     const joinData = await readCSV(`${joinTable}.csv`);
     switch (joinType.toUpperCase()) {
@@ -147,69 +146,64 @@ async function executeSELECTQuery(query) {
         data = performRightJoin(data, joinData, joinCondition, fields, table);
         break;
       default:
-        throw new Error(`Unsupported join type`);
-      // Handle default case or unsupported JOIN types
+        throw new Error(`Unsupported JOIN type: ${joinType}`);
     }
   }
-
-  console.log("data", data);
+  // Apply WHERE clause filtering after JOIN (or on the original data if no join)
   let filteredData =
     whereClauses.length > 0
       ? data.filter((row) =>
           whereClauses.every((clause) => evaluateCondition(row, clause))
         )
       : data;
-  console.log("filtered Data after condition", filteredData);
-
-  let groupData = filteredData;
+  let groupResults = filteredData;
   if (hasAggregateWithoutGroupBy) {
-    // handling queries where there are no Group by and we are doing Aggregrate
-    const output = {};
+    // Special handling for queries like 'SELECT COUNT(*) FROM table'
+    const result = {};
 
     fields.forEach((field) => {
       const match = /(\w+)\((\*|\w+)\)/.exec(field);
       if (match) {
-        const [, aggregrateFunc, aggregrateField] = match;
-        switch (aggregrateFunc.toUpperCase()) {
+        const [, aggFunc, aggField] = match;
+        switch (aggFunc.toUpperCase()) {
           case "COUNT":
-            output[field] = filteredData.length;
+            result[field] = filteredData.length;
             break;
           case "SUM":
-            output[field] = filteredData.reduce(
-              (acc, row) => acc + parseFloat(row[aggregrateField]),
+            result[field] = filteredData.reduce(
+              (acc, row) => acc + parseFloat(row[aggField]),
               0
             );
             break;
           case "AVG":
-            output[field] =
+            result[field] =
               filteredData.reduce(
-                (acc, row) => acc + parseFloat(row[aggregrateField]),
+                (acc, row) => acc + parseFloat(row[aggField]),
                 0
               ) / filteredData.length;
             break;
           case "MIN":
-            output[field] = Math.min(
-              ...filteredData.map((row) => parseFloat(row[aggregrateField]))
+            result[field] = Math.min(
+              ...filteredData.map((row) => parseFloat(row[aggField]))
             );
             break;
           case "MAX":
-            output[field] = Math.max(
-              ...filteredData.map((row) => parseFloat(row[aggregrateField]))
+            result[field] = Math.max(
+              ...filteredData.map((row) => parseFloat(row[aggField]))
             );
             break;
           // Additional aggregate functions can be handled here
         }
       }
     });
-
-    return [output];
+    return [result];
+    // Add more cases here if needed for other aggregates
   } else if (groupByFields) {
-    groupData = applyGroupBy(filteredData, groupByFields, fields);
-    console.log("Group dataa", groupData);
-
-    let orderOutput = groupData;
+    groupResults = applyGroupBy(filteredData, groupByFields, fields);
+    // Order them by the specified fields
+    let orderedResults = groupResults;
     if (orderByFields) {
-      orderOutput = groupData.sort((a, b) => {
+      orderedResults = groupResults.sort((a, b) => {
         for (let { fieldName, order } of orderByFields) {
           if (a[fieldName] < b[fieldName]) return order === "ASC" ? -1 : 1;
           if (a[fieldName] > b[fieldName]) return order === "ASC" ? 1 : -1;
@@ -217,12 +211,15 @@ async function executeSELECTQuery(query) {
         return 0;
       });
     }
-    return groupData;
+    if (limit !== null) {
+      groupResults = groupResults.slice(0, limit);
+    }
+    return groupResults;
   } else {
     // Order them by the specified fields
-    let orderOutput = groupData;
+    let orderedResults = groupResults;
     if (orderByFields) {
-      orderOutput = groupData.sort((a, b) => {
+      orderedResults = groupResults.sort((a, b) => {
         for (let { fieldName, order } of orderByFields) {
           if (a[fieldName] < b[fieldName]) return order === "ASC" ? -1 : 1;
           if (a[fieldName] > b[fieldName]) return order === "ASC" ? 1 : -1;
@@ -231,9 +228,15 @@ async function executeSELECTQuery(query) {
       });
     }
 
-    return orderOutput.map((row) => {
+    if (limit !== null) {
+      orderedResults = orderedResults.slice(0, limit);
+    }
+
+    // Select the specified fields
+    return orderedResults.map((row) => {
       const selectedRow = {};
       fields.forEach((field) => {
+        // Assuming 'field' is just the column name without table prefix
         selectedRow[field] = row[field];
       });
       return selectedRow;
