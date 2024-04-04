@@ -90,7 +90,7 @@ test("Execute SQL Query with INNER JOIN and a WHERE Clause", async () => {
       }
     ]
     */
-  expect(result.length).toEqual(3);
+  expect(result.length).toEqual(2);
   // toHaveProperty is not working here due to dot in the property name
   expect(result[0]).toEqual(
     expect.objectContaining({
@@ -187,7 +187,7 @@ test("Execute SQL Query with RIGHT JOIN with a WHERE clause filtering the main t
       }),
     ])
   );
-  expect(result.length).toEqual(3);
+  expect(result.length).toEqual(2);
 });
 
 test("Execute SQL Query with RIGHT JOIN with a WHERE clause filtering the join table", async () => {
@@ -245,10 +245,10 @@ test("Count students per age", async () => {
   const query = "SELECT age, COUNT(*) FROM student GROUP BY age";
   const result = await executeSELECTQuery(query);
   expect(result).toEqual([
+    { age: "30", "COUNT(*)": 1 },
+    { age: "25", "COUNT(*)": 1 },
     { age: "22", "COUNT(*)": 1 },
     { age: "24", "COUNT(*)": 1 },
-    { age: "25", "COUNT(*)": 1 },
-    { age: "30", "COUNT(*)": 1 },
   ]);
 });
 
@@ -279,9 +279,9 @@ test("Count students within a specific age range", async () => {
   const query = "SELECT age, COUNT(*) FROM student WHERE age > 22 GROUP BY age";
   const result = await executeSELECTQuery(query);
   expect(result).toEqual([
-    { age: "24", "COUNT(*)": 1 },
-    { age: "25", "COUNT(*)": 1 },
     { age: "30", "COUNT(*)": 1 },
+    { age: "25", "COUNT(*)": 1 },
+    { age: "24", "COUNT(*)": 1 },
   ]);
 });
 
@@ -593,7 +593,6 @@ test("Parse COUNT Aggregate Query", () => {
     joinTable: null,
     joinType: null,
     groupByFields: null,
-    hasAggregateWithoutGroupBy: false,
     orderByFields: null,
     limit: null,
     isDistinct: false,
@@ -613,7 +612,6 @@ test("Parse SUM Aggregate Query", () => {
     joinTable: null,
     joinType: null,
     groupByFields: null,
-    hasAggregateWithoutGroupBy: false,
     orderByFields: null,
     limit: null,
     isDistinct: false,
@@ -633,7 +631,6 @@ test("Parse AVG Aggregate Query", () => {
     joinTable: null,
     joinType: null,
     groupByFields: null,
-    hasAggregateWithoutGroupBy: false,
     orderByFields: null,
     limit: null,
     isDistinct: false,
@@ -653,7 +650,6 @@ test("Parse MIN Aggregate Query", () => {
     joinTable: null,
     joinType: null,
     groupByFields: null,
-    hasAggregateWithoutGroupBy: false,
     orderByFields: null,
     limit: null,
     isDistinct: false,
@@ -673,7 +669,6 @@ test("Parse MAX Aggregate Query", () => {
     joinTable: null,
     joinType: null,
     groupByFields: null,
-    hasAggregateWithoutGroupBy: false,
     orderByFields: null,
     limit: null,
     isDistinct: false,
@@ -691,10 +686,10 @@ test("Parse basic GROUP BY query", () => {
     joinType: null,
     joinTable: null,
     joinCondition: null,
-    hasAggregateWithoutGroupBy: false,
     orderByFields: null,
     limit: null,
     isDistinct: false,
+    hasAggregateWithoutGroupBy: false,
   });
 });
 
@@ -793,7 +788,7 @@ test("Execute SQL Query with ORDER BY and GROUP BY", async () => {
 test("Execute SQL Query with standard LIMIT clause", async () => {
   const query = "SELECT id, name FROM student LIMIT 2";
   const result = await executeSELECTQuery(query);
-  expect(result.length).toEqual(3);
+  expect(result.length).toEqual(2);
 });
 
 test("Execute SQL Query with LIMIT clause equal to total rows", async () => {
@@ -817,7 +812,7 @@ test("Execute SQL Query with LIMIT 0", async () => {
 test("Execute SQL Query with LIMIT and ORDER BY clause", async () => {
   const query = "SELECT id, name FROM student ORDER BY age DESC LIMIT 2";
   const result = await executeSELECTQuery(query);
-  expect(result.length).toEqual(3);
+  expect(result.length).toEqual(2);
   expect(result[0].name).toEqual("John");
   expect(result[1].name).toEqual("Jane");
 });

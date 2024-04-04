@@ -87,13 +87,29 @@ function parseQuery(query) {
 
 function parseWhereClause(whereString) {
   const conditionRegex = /(.*?)(=|!=|>|<|>=|<=)(.*)/;
-  return whereString.split(/ AND | OR /i).map((conditionString) => {
-    const match = conditionString.match(conditionRegex);
-    if (match) {
-      const [, field, operator, value] = match;
-      return { field: field.trim(), operator, value: value.trim() };
-    }
+  const match = whereString.match(conditionRegex);
+  const includesLIKE = whereString.includes(" LIKE ");
+  if (!match && !includesLIKE) {
     throw new Error("Invalid WHERE clause format");
+  }
+
+  const conditions = whereString.split(/ AND | OR /i);
+  const proper_conditions = [];
+  conditions.forEach((element) => {
+    proper_conditions.push(element.trim());
+  });
+
+  return proper_conditions.map((condition) => {
+    let [field, operator, value] = condition.split(/\s+/);
+    if (
+      operator == "LIKE" &&
+      typeof value === "string" &&
+      ((value.startsWith("'") && value.endsWith("'")) ||
+        (value.startsWith('"') && value.endsWith('"')))
+    ) {
+      value = value.substring(1, value.length - 1);
+    }
+    return { field, operator, value };
   });
 }
 

@@ -258,7 +258,6 @@ async function executeSELECTQuery(query) {
           break;
       }
     }
-
     const filterData = () => {
       if (whereClauses.length > 0) {
         return data.filter((row) => {
@@ -379,6 +378,10 @@ function evaluateCondition(row, clause) {
       return row[field] >= value;
     case "<=":
       return row[field] <= value;
+    case "LIKE": {
+      const regexPattern = "^" + clause.value.replace(/%/g, ".*") + "$";
+      return new RegExp(regexPattern, "i").test(row[clause.field]);
+    }
     default:
       throw new Error(`Unsupported operator: ${operator}`);
   }
