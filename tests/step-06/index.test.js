@@ -1,6 +1,6 @@
-const readCSV = require("../../src/csvReader");
-const { parseQuery } = require("../../src/queryParser");
-const executeSELECTQuery = require("../../src/index");
+const { readCSV } = require("../../src/csvReader");
+const { executeSELECTQuery } = require("../../src/index");
+const { parseJoinClause, parseSelectQuery } = require("../../src/queryParser");
 
 test("Read CSV File", async () => {
   const data = await readCSV("./student.csv");
@@ -12,17 +12,17 @@ test("Read CSV File", async () => {
 
 test("Parse SQL Query", () => {
   const query = "SELECT id, name FROM student";
-  const parsed = parseQuery(query);
+  const parsed = parseSelectQuery(query);
   expect(parsed).toEqual({
     fields: ["id", "name"],
     table: "student",
     whereClauses: [],
     joinCondition: null,
+    orderByFields: null,
     joinTable: null,
     joinType: null,
     groupByFields: null,
     hasAggregateWithoutGroupBy: false,
-    orderByFields: null,
     limit: null,
     isDistinct: false,
   });
@@ -40,7 +40,7 @@ test("Execute SQL Query", async () => {
 
 test("Parse SQL Query with WHERE Clause", () => {
   const query = "SELECT id, name FROM student WHERE age = 25";
-  const parsed = parseQuery(query);
+  const parsed = parseSelectQuery(query);
   expect(parsed).toEqual({
     fields: ["id", "name"],
     table: "student",
@@ -52,11 +52,11 @@ test("Parse SQL Query with WHERE Clause", () => {
       },
     ],
     joinCondition: null,
+    orderByFields: null,
     joinTable: null,
     joinType: null,
     groupByFields: null,
     hasAggregateWithoutGroupBy: false,
-    orderByFields: null,
     limit: null,
     isDistinct: false,
   });
@@ -65,8 +65,44 @@ test("Parse SQL Query with WHERE Clause", () => {
 test("Execute SQL Query with WHERE Clause", async () => {
   const query = "SELECT id, name FROM student WHERE age = 25";
   const result = await executeSELECTQuery(query);
-  expect(result.length).toBe(1); // Update to reflect the correct number of expected results
+  expect(result.length).toBe(1);
   expect(result[0]).toHaveProperty("id");
   expect(result[0]).toHaveProperty("name");
-  expect(result[0].id).toBe("2"); // Update to reflect the correct expected result
+  expect(result[0].id).toBe("2");
+});
+
+test("Parse SQL Query with Multiple WHERE Clauses", () => {
+  const query = "SELECT id, name FROM student WHERE age = 30 AND name = John";
+  const parsed = parseSelectQuery(query);
+  expect(parsed).toEqual({
+    fields: ["id", "name"],
+    table: "student",
+    whereClauses: [
+      {
+        field: "age",
+        operator: "=",
+        value: "30",
+      },
+      {
+        field: "name",
+        operator: "=",
+        value: "John",
+      },
+    ],
+    joinCondition: null,
+    joinTable: null,
+    joinType: null,
+    groupByFields: null,
+    orderByFields: null,
+    hasAggregateWithoutGroupBy: false,
+    limit: null,
+    isDistinct: false,
+  });
+});
+
+test("Execute SQL Query with Multiple WHERE Clause", async () => {
+  const query = "SELECT id, name FROM student WHERE age = 30 AND name = John";
+  const result = await executeSELECTQuery(query);
+  expect(result.length).toBe(1);
+  expect(result[0]).toEqual({ id: "1", name: "John" });
 });

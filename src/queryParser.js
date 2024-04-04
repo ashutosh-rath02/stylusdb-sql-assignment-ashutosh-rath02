@@ -1,4 +1,85 @@
-function parseQuery(query) {
+function parseWhereClause(whereString) {
+  const conditionRegex = /(.*?)(=|!=|>|<|>=|<=)(.*)/;
+  return whereString.split(/ AND | OR /i).map((conditionString) => {
+    if (conditionString.includes(" LIKE ")) {
+      const condition = conditionString.split(/\sLIKE\s/i);
+      const [field, pattern] = condition;
+      return { field: field.trim(), operator: "LIKE", value: pattern.trim() };
+    }
+    const match = conditionString.match(conditionRegex);
+    if (match) {
+      const [, field, operator, value] = match;
+      return { field: field.trim(), operator, value: value.trim() };
+    }
+    throw new Error("Invalid WHERE clause format");
+  });
+}
+
+function parseJoinClause(query) {
+  const joinRegex =
+    /\s(INNER|LEFT|RIGHT) JOIN\s(.+?)\sON\s([\w.]+)\s*=\s*([\w.]+)/i;
+  const joinMatch = query.match(joinRegex);
+  if (joinMatch) {
+    return {
+      joinType: joinMatch[1].trim(),
+      joinTable: joinMatch[2].trim(),
+      joinCondition: {
+        left: joinMatch[3].trim(),
+        right: joinMatch[4].trim(),
+      },
+    };
+  }
+
+  return {
+    joinType: null,
+    joinTable: null,
+    joinCondition: null,
+  };
+}
+
+function parseInsertQuery(query) {
+  const regex = /INSERT INTO (\w+)\s*(?:\(([^)]+)\))?\s*VALUES\s*\(([^)]+)\)/i;
+  const match = query.match(regex);
+
+  if (match) {
+    const table = match[1];
+    const columns = match[2]?.split(/\s*,\s*/).map((col) => `'${col}'`) || [];
+    const values = match[3].split(/\s*,\s*/).map((val) => `'${val}'`);
+    return {
+      type: "INSERT",
+      table,
+      columns,
+      values,
+    };
+  }
+}
+
+function parseDeleteQuery(query) {
+  const pattern = /^DELETE\s+FROM\s+(.+?)\s+WHERE\s+(.+?)$/i;
+  const match = query.trim().match(pattern);
+
+  if (!match) {
+    throw new Error("Invalid DELETE query format");
+  }
+
+  const table = match[1];
+  const whereClause = match[2];
+
+  const whereClauses = parseWhereClause(whereClause);
+  return {
+    type: "DELETE",
+    table,
+    whereClauses,
+  };
+}
+
+function getGroupByFields(groupBySplit) {
+  if (groupBySplit.length > 1) {
+    return groupBySplit[1].split(",").map((field) => field.trim());
+  } else return null;
+}
+
+function parseSelectQuery(query) {
   try {
     query = query.trim();
 
@@ -85,76 +166,9 @@ function parseQuery(query) {
   }
 }
 
-function parseWhereClause(whereString) {
-  const conditionRegex = /(.*?)(=|!=|>|<|>=|<=)(.*)/;
-  const match = whereString.match(conditionRegex);
-  const includesLIKE = whereString.includes(" LIKE ");
-  if (!match && !includesLIKE) {
-    throw new Error("Invalid WHERE clause format");
-  }
-
-  const conditions = whereString.split(/ AND | OR /i);
-  const proper_conditions = [];
-  conditions.forEach((element) => {
-    proper_conditions.push(element.trim());
-  });
-
-  return proper_conditions.map((condition) => {
-    let [field, operator, value] = condition.split(/\s+/);
-    if (
-      operator == "LIKE" &&
-      typeof value === "string" &&
-      ((value.startsWith("'") && value.endsWith("'")) ||
-        (value.startsWith('"') && value.endsWith('"')))
-    ) {
-      value = value.substring(1, value.length - 1);
-    }
-    return { field, operator, value };
-  });
-}
-
-function parseJoinClause(query) {
-  const joinRegex =
-    /\s(INNER|LEFT|RIGHT) JOIN\s(.+?)\sON\s([\w.]+)\s*=\s*([\w.]+)/i;
-  const joinMatch = query.match(joinRegex);
-  if (joinMatch) {
-    return {
-      joinType: joinMatch[1].trim(),
-      joinTable: joinMatch[2].trim(),
-      joinCondition: {
-        left: joinMatch[3].trim(),
-        right: joinMatch[4].trim(),
-      },
-    };
-  }
-
-  return {
-    joinType: null,
-    joinTable: null,
-    joinCondition: null,
-  };
-}
-
-function parseInsertQuery(query) {
-  const regex = /INSERT INTO (\w+)\s*(?:\(([^)]+)\))?\s*VALUES\s*\(([^)]+)\)/i;
-  const match = query.match(regex);
-
-  if (match) {
-    const table = match[1];
-    const columns = match[2]?.split(/\s*,\s*/).map((col) => `'${col}'`) || [];
-    const values = match[3].split(/\s*,\s*/).map((val) => `'${val}'`);
-    return {
-      type: "INSERT",
-      table,
-      columns,
-      values,
-    };
-  }
-}
-
-function getGroupByFields(groupBySplit) {
-  if (groupBySplit.length > 1) {
-    return groupBySplit[1].split(",").map((field) => field.trim());
-  } else return null;
-}
-module.exports = { parseQuery, parseJoinClause, parseInsertQuery };
+module.exports = {
+  parseSelectQuery,
+  parseJoinClause,
+  parseInsertQuery,
+  parseDeleteQuery,
+};

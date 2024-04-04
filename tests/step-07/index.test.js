@@ -1,6 +1,6 @@
-const readCSV = require("../../src/csvReader");
-const { parseQuery } = require("../../src/queryParser");
-const executeSELECTQuery = require("../../src/index");
+const { readCSV } = require("../../src/csvReader");
+const { executeSELECTQuery } = require("../../src/index");
+const { parseJoinClause, parseSelectQuery } = require("../../src/queryParser");
 
 test("Read CSV File", async () => {
   const data = await readCSV("./student.csv");
@@ -12,19 +12,19 @@ test("Read CSV File", async () => {
 
 test("Parse SQL Query", () => {
   const query = "SELECT id, name FROM student";
-  const parsed = parseQuery(query);
+  const parsed = parseSelectQuery(query);
   expect(parsed).toEqual({
     fields: ["id", "name"],
     table: "student",
     whereClauses: [],
     joinCondition: null,
-    joinTable: null,
     joinType: null,
+    joinTable: null,
     groupByFields: null,
     hasAggregateWithoutGroupBy: false,
     orderByFields: null,
-    limit: null,
     isDistinct: false,
+    limit: null,
   });
 });
 
@@ -40,7 +40,7 @@ test("Execute SQL Query", async () => {
 
 test("Parse SQL Query with WHERE Clause", () => {
   const query = "SELECT id, name FROM student WHERE age = 25";
-  const parsed = parseQuery(query);
+  const parsed = parseSelectQuery(query);
   expect(parsed).toEqual({
     fields: ["id", "name"],
     table: "student",
@@ -73,7 +73,7 @@ test("Execute SQL Query with WHERE Clause", async () => {
 
 test("Parse SQL Query with Multiple WHERE Clauses", () => {
   const query = "SELECT id, name FROM student WHERE age = 30 AND name = John";
-  const parsed = parseQuery(query);
+  const parsed = parseSelectQuery(query);
   expect(parsed).toEqual({
     fields: ["id", "name"],
     table: "student",
@@ -100,7 +100,7 @@ test("Parse SQL Query with Multiple WHERE Clauses", () => {
   });
 });
 
-test("Execute SQL Query with Complex WHERE Clause", async () => {
+test("Execute SQL Query with Multiple WHERE Clause", async () => {
   const query = "SELECT id, name FROM student WHERE age = 30 AND name = John";
   const result = await executeSELECTQuery(query);
   expect(result.length).toBe(1);
@@ -119,4 +119,11 @@ test("Execute SQL Query with Not Equal to", async () => {
   const result = await executeSELECTQuery(queryWithGT);
   expect(result.length).toEqual(3);
   expect(result[0]).toHaveProperty("name");
+});
+
+test("Execute SQL Query with Negative", async () => {
+  const queryWithGT = "SELECT name FROM student WHERE age <0";
+  const result = await executeSELECTQuery(queryWithGT);
+  expect(result.length).toEqual(0);
+  expect(result).toEqual([]);
 });
