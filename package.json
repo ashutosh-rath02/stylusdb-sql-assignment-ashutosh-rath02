@@ -35,7 +35,7 @@
     "stylusdb-cli": "node ./src/cli.js"
   },
   "keywords": [],
-  "author": "Chakshu Gautam",
+  "author": "Ashutosh Rath",
   "license": "ISC",
   "devDependencies": {
     "jest": "^29.7.0"
