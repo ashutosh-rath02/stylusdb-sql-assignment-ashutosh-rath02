@@ -135,9 +135,26 @@ function parseJoinClause(query) {
   };
 }
 
+function parseInsertQuery(query) {
+  const regex = /INSERT INTO (\w+)\s*(?:\(([^)]+)\))?\s*VALUES\s*\(([^)]+)\)/i;
+  const match = query.match(regex);
+
+  if (match) {
+    const table = match[1];
+    const columns = match[2]?.split(/\s*,\s*/).map((col) => `'${col}'`) || [];
+    const values = match[3].split(/\s*,\s*/).map((val) => `'${val}'`);
+    return {
+      type: "INSERT",
+      table,
+      columns,
+      values,
+    };
+  }
+}
+
 function getGroupByFields(groupBySplit) {
   if (groupBySplit.length > 1) {
     return groupBySplit[1].split(",").map((field) => field.trim());
   } else return null;
 }
-module.exports = { parseQuery, parseJoinClause };
+module.exports = { parseQuery, parseJoinClause, parseInsertQuery };
